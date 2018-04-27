@@ -2,6 +2,9 @@ package simulator;
 
 import simulator.util.Logarithm;
 
+import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public class VirtualMemorySimulator {
@@ -16,6 +19,10 @@ public class VirtualMemorySimulator {
     private MainMemory mainMemory;
     private PageTable pageTable;
     private Disk disk;
+
+    //table to store last used times for each frame number in the main memory
+    //use this for the Least Recently Used page replacement algorithm, to decide which page to replace
+    private Map<Integer, Timestamp> lruTable;
 
     //Constructors
     public VirtualMemorySimulator(int virtualMemorySize, int mainMemorySize, int pageSize){
@@ -32,6 +39,12 @@ public class VirtualMemorySimulator {
         int maxVirtualPageNumber = (int)Math.pow(2, virtualAddressNrBits - offsetNrBits);
         pageTable = new PageTable(maxVirtualPageNumber);
         disk = new Disk(maxVirtualPageNumber, pageSize);
+
+        // initialize lruTable
+        lruTable = new HashMap<>();
+        for (int i = 0; i < maxFrameNumber; i++) {
+            lruTable.put(i, null);
+        }
     }
 
     //Getters and setters
@@ -83,47 +96,116 @@ public class VirtualMemorySimulator {
         this.offsetNrBits = offsetNrBits;
     }
 
+    public int getLeastRecentlyUsedFrame() {
+        int frameNr = 0;
+        Timestamp time = lruTable.get(frameNr);
+        for (Map.Entry<Integer, Timestamp> e: lruTable.entrySet()) {
+            if (time.after(e.getValue())) {
+                frameNr = e.getKey();
+                time = e.getValue();
+            }
+        }
+        return frameNr;
+    }
+
     public int loadData(int address) {
+
         VirtualAddress virtualAddress = constructVirtualAddress(address);
         System.out.println("Virtual address is: " + virtualAddress);
-        if (pageTable.isPresent(virtualAddress)) {
+        if (pageTable.isPresent(virtualAddress.getVirtualPageNumber())) {
             //translate address and load from main memory
-            int frameNumber = pageTable.getFrameNumber(virtualAddress);
+            int frameNumber = pageTable.getFrameNumber(virtualAddress.getVirtualPageNumber());
             PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
+            lruTable.put(frameNumber, new Timestamp(System.currentTimeMillis())); //update LRU table
+            System.out.println("updated timestamp: " + lruTable.get(frameNumber));
             return mainMemory.load(physicalAddress);
         }
         else {
             //load from disk
-            Page page = disk.load(virtualAddress);
-            int frameNumber = mainMemory.bringPageToMemory(page);
-            pageTable.newPageTableEntry(virtualAddress, frameNumber);
-            //TODO add page replacement algorithm
-            PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
-            return mainMemory.load(physicalAddress);
+            Page page = disk.load(virtualAddress.getVirtualPageNumber());
+
+            //if memory is full, apply page replacement algorithm to evict least recently used page
+            if (mainMemory.isFull()) {
+                int lruFrameNr = getLeastRecentlyUsedFrame();
+                int lruVirtualPageNumber = pageTable.getCorrespondingVPN(lruFrameNr);
+
+                //if page is dirty, write to disk
+                if (pageTable.isDirty(lruVirtualPageNumber)) {
+                    Page evictedPage = mainMemory.getPage(lruFrameNr);
+                    disk.store(lruVirtualPageNumber, evictedPage);
+                    pageTable.setDirty(lruVirtualPageNumber, false);
+                }
+
+                pageTable.setPresent(lruVirtualPageNumber, false);
+
+                mainMemory.bringPageToMemory(page, lruFrameNr);
+                pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), lruFrameNr);
+                lruTable.put(lruFrameNr, new Timestamp(System.currentTimeMillis())); //update LRU table
+                System.out.println("updated timestamp: " + lruTable.get(lruFrameNr));
+                PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, lruFrameNr);
+                return mainMemory.load(physicalAddress);
+            }
+            else {
+                int frameNumber = mainMemory.bringPageToMemory(page);
+                pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), frameNumber);
+                lruTable.put(frameNumber, new Timestamp(System.currentTimeMillis())); //update LRU table
+                System.out.println("updated timestamp: " + lruTable.get(frameNumber));
+                PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
+                return mainMemory.load(physicalAddress);
+            }
         }
     }
 
     public void storeData(int address, int data) {
+
         VirtualAddress virtualAddress = constructVirtualAddress(address);
-        if (pageTable.isPresent(virtualAddress)) {
+        if (pageTable.isPresent(virtualAddress.getVirtualPageNumber())) {
             //translate address and load from main memory
-            int frameNumber = pageTable.getFrameNumber(virtualAddress);
+            int frameNumber = pageTable.getFrameNumber(virtualAddress.getVirtualPageNumber());
             PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
             mainMemory.store(physicalAddress, data);
 
+            pageTable.setDirty(virtualAddress.getVirtualPageNumber(), true);
+            lruTable.put(frameNumber, new Timestamp(System.currentTimeMillis())); //update LRU table
             mainMemory.printPageContents(physicalAddress.getFrameNumber());
         }
         else {
             //load page from disk
-            Page page = disk.load(virtualAddress);
-            //disk.store(virtualAddress, data); //TODO do this only when page is removed from main memory, after checking dirty bit
-            int frameNumber = mainMemory.bringPageToMemory(page);
-            System.out.println("Frame number is: " + frameNumber);
-            pageTable.newPageTableEntry(virtualAddress, frameNumber);   // add new mapping to page table
-            PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
+            Page page = disk.load(virtualAddress.getVirtualPageNumber());
 
-            mainMemory.store(physicalAddress, data);
-            mainMemory.printPageContents(frameNumber);
+            if (mainMemory.isFull()) {
+                int lruFrameNr = getLeastRecentlyUsedFrame();
+                int lruVirtualPageNumber = pageTable.getCorrespondingVPN(lruFrameNr);
+
+                //if page is dirty, write to disk
+                if (pageTable.isDirty(lruVirtualPageNumber)) {
+                    Page evictedPage = mainMemory.getPage(lruFrameNr);
+                    disk.store(lruVirtualPageNumber, evictedPage);
+                    pageTable.setDirty(lruVirtualPageNumber, false);
+                }
+
+                pageTable.setPresent(lruVirtualPageNumber, false);
+
+                mainMemory.bringPageToMemory(page, lruFrameNr);
+                pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), lruFrameNr);
+                lruTable.put(lruFrameNr, new Timestamp(System.currentTimeMillis())); //update LRU table
+                System.out.println("updated timestamp: " + lruTable.get(lruFrameNr));
+
+                PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, lruFrameNr);
+                mainMemory.store(physicalAddress, data);
+                pageTable.setDirty(virtualAddress.getVirtualPageNumber(), true);
+
+            }
+            else {
+                int frameNumber = mainMemory.bringPageToMemory(page);
+                System.out.println("Frame number is: " + frameNumber);
+                pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), frameNumber);   // add new mapping to page table
+                PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
+                lruTable.put(frameNumber, new Timestamp(System.currentTimeMillis())); //update LRU table
+                pageTable.setDirty(virtualAddress.getVirtualPageNumber(), true);
+                mainMemory.store(physicalAddress, data);
+                mainMemory.printPageContents(frameNumber);
+            }
         }
     }
 

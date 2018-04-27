@@ -18,12 +18,21 @@ public class Page {
         }
     }
 
+    private Page(int pageSize, Map<Integer, Integer> pageContents) {
+        this.pageSize = pageSize;
+        this.pageContents = new HashMap<>(pageContents);
+    }
+
     public int load(int offset) {
         return pageContents.get(offset);
     }
 
     public void store(int offset, int data) {
         pageContents.put(offset, data);
+    }
+
+    public Page getCopy() {
+        return new Page(pageSize, pageContents);
     }
 
     public void printContents() {

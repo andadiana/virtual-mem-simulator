@@ -36,11 +36,29 @@ public class MainMemory {
         memory.get(address.getFrameNumber()).store(address.getOffset(), data);
     }
 
+    public Page pageCopy(Page page) {
+        return page.getCopy();
+    }
+
     public int bringPageToMemory(Page page) {
-        memory.put(lastFrameNr, page);
+        memory.put(lastFrameNr, pageCopy(page));
         int frameNr = lastFrameNr;
         lastFrameNr++;
         return frameNr;
+    }
+
+    public void bringPageToMemory(Page page, int frameNr) {
+        memory.put(frameNr, pageCopy(page));
+    }
+
+    public boolean isFull() {
+        if (lastFrameNr == nrFrames)
+            return true;
+        return false;
+    }
+
+    public Page getPage(int frameNr) {
+        return memory.get(frameNr);
     }
 
     public void printContents() {

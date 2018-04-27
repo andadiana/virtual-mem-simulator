@@ -13,35 +13,51 @@ public class PageTable {
         //initialize page table
         pageTable = new HashMap<>();
         for (int i = 0; i < size; i++) {
-            PageTableEntry pte = new PageTableEntry(0, false, false, false);
+            PageTableEntry pte = new PageTableEntry(-1, false, false, false);
             pageTable.put(i, pte);
         }
 
     }
 
-    public int getFrameNumber(VirtualAddress virtualAddress) {
-        return pageTable.get(virtualAddress.getVirtualPageNumber()).getFrameNumber();
+    public int getFrameNumber(int virtualPageNumber) {
+        return pageTable.get(virtualPageNumber).getFrameNumber();
     }
 
-    public boolean isDirty(VirtualAddress virtualAddress) {
-        return pageTable.get(virtualAddress.getVirtualPageNumber()).isDirty();
+    public boolean isDirty(int virtualPageNumber) {
+        return pageTable.get(virtualPageNumber).isDirty();
     }
 
-    public boolean isReferenced(VirtualAddress virtualAddress) {
-        return pageTable.get(virtualAddress.getVirtualPageNumber()).isReferenced();
+    public boolean isReferenced(int virtualPageNumber) {
+        return pageTable.get(virtualPageNumber).isReferenced();
     }
 
-    public boolean isPresent(VirtualAddress virtualAddress) {
-        return pageTable.get(virtualAddress.getVirtualPageNumber()).isPresent();
+    public boolean isPresent(int virtualPageNumber) {
+        return pageTable.get(virtualPageNumber).isPresent();
     }
 
-    public void setDirty(VirtualAddress virtualAddress) {
-        pageTable.get(virtualAddress).setDirty(true);
+    public void setPresent(int virtualPageNumber, boolean present) {
+        pageTable.get(virtualPageNumber).setPresent(present);
+        if (present == false) {
+            pageTable.get(virtualPageNumber).setFrameNumber(-1);
+        }
     }
 
-    public void newPageTableEntry(VirtualAddress virtualAddress, int frameNr) {
+    public void setDirty(int virtualPageNumber, boolean dirty) {
+        pageTable.get(virtualPageNumber).setDirty(dirty);
+    }
+
+    public int getCorrespondingVPN(int frameNr) {
+        for (Map.Entry<Integer, PageTableEntry> e: pageTable.entrySet()) {
+            if (e.getValue().getFrameNumber() == frameNr) {
+                return e.getKey();
+            }
+        }
+        return 0;
+    }
+
+    public void newPageTableEntry(int virtualPageNumber, int frameNr) {
         PageTableEntry pte = new PageTableEntry(frameNr, true, false, true);
-        pageTable.put(virtualAddress.getVirtualPageNumber(), pte);
+        pageTable.put(virtualPageNumber, pte);
     }
 
     public void printContents() {

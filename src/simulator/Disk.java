@@ -18,12 +18,12 @@ public class Disk {
         }
     }
 
-    public void store(VirtualAddress address, Page page) {
-        disk.put(address.getVirtualPageNumber(), page);
+    public void store(int virtualPageNumber, Page page) {
+        disk.put(virtualPageNumber, page);
     }
 
-    public Page load(VirtualAddress address) {
-        return disk.get(address.getVirtualPageNumber());
+    public Page load(int virtualPageNumber) {
+        return disk.get(virtualPageNumber);
     }
 
     public void printContents() {
