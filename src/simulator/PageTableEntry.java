@@ -4,14 +4,11 @@ public class PageTableEntry {
     private int frameNumber;
     private boolean present;
     private boolean dirty;
-    //TODO decide if you need this when implementing the page replacement algorithm
-    private boolean referenced;
 
-    public PageTableEntry(int frameNumber, boolean present, boolean dirty, boolean referenced) {
+    public PageTableEntry(int frameNumber, boolean present, boolean dirty) {
         this.frameNumber = frameNumber;
         this.present = present;
         this.dirty = dirty;
-        this.referenced = referenced;
     }
 
     public int getFrameNumber() {
@@ -36,14 +33,6 @@ public class PageTableEntry {
 
     public void setDirty(boolean dirty) {
         this.dirty = dirty;
-    }
-
-    public boolean isReferenced() {
-        return referenced;
-    }
-
-    public void setReferenced(boolean referenced) {
-        this.referenced = referenced;
     }
 
     public String toString() {

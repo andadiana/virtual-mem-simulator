@@ -13,10 +13,14 @@ public class PageTable {
         //initialize page table
         pageTable = new HashMap<>();
         for (int i = 0; i < size; i++) {
-            PageTableEntry pte = new PageTableEntry(-1, false, false, false);
+            PageTableEntry pte = new PageTableEntry(-1, false, false);
             pageTable.put(i, pte);
         }
 
+    }
+
+    public PageTableEntry getPageTableEntry(int virtualPageNumber) {
+        return pageTable.get(virtualPageNumber);
     }
 
     public int getFrameNumber(int virtualPageNumber) {
@@ -25,10 +29,6 @@ public class PageTable {
 
     public boolean isDirty(int virtualPageNumber) {
         return pageTable.get(virtualPageNumber).isDirty();
-    }
-
-    public boolean isReferenced(int virtualPageNumber) {
-        return pageTable.get(virtualPageNumber).isReferenced();
     }
 
     public boolean isPresent(int virtualPageNumber) {
@@ -56,7 +56,7 @@ public class PageTable {
     }
 
     public void newPageTableEntry(int virtualPageNumber, int frameNr) {
-        PageTableEntry pte = new PageTableEntry(frameNr, true, false, true);
+        PageTableEntry pte = new PageTableEntry(frameNr, true, false);
         pageTable.put(virtualPageNumber, pte);
     }
 
