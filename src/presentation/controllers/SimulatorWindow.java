@@ -6,10 +6,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 import javafx.fxml.FXML;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
+import javafx.event.ActionEvent;
 import javafx.util.Callback;
 import presentation.data.DiskItem;
 import presentation.data.MemoryItem;
@@ -77,26 +77,167 @@ public class SimulatorWindow {
     @FXML
     private TableColumn<PageTableItem, Boolean> dirtyColumnTLBTable;
 
+    @FXML
+    private ComboBox<String> commandComboBox;
+
+    @FXML
+    private TextField addressTextField;
+
+    @FXML
+    private TextField dataTextField;
+
+    @FXML
+    private Label dataLabel;
+
+    @FXML
+    private Button button;
+
+    @FXML
+    private Label errorLabel;
+
+    @FXML
+    private Label simulatorDetailsLabel;
+
     private VirtualMemorySimulator simulator;
+    private String command;
+    private int maxAddress;
 
     @FXML
     private void initialize() {
 
-        simulator = new VirtualMemorySimulator(16, 8, 2, 3);
+        int virtualMemorySize = 16;
+        int mainMemorySize = 8;
+        int pageSize = 2;
+        int tlbSize = 3;
+
+        simulator = new VirtualMemorySimulator(virtualMemorySize, mainMemorySize, pageSize, tlbSize);
+        maxAddress = simulator.getVirtualMemorySize();
+
+        simulatorDetailsLabel.setText("Simulator details: Virtual memory size: " + virtualMemorySize + ", main memory " +
+                "size: " + mainMemorySize + ", page size: " + pageSize + ", tlb size: " + tlbSize);
+
+        ObservableList<String> options = FXCollections.observableArrayList("LOAD", "STORE");
+        commandComboBox.setItems(options);
+        commandComboBox.getSelectionModel().select(0);
+        command = commandComboBox.getSelectionModel().getSelectedItem();
+        dataTextField.setVisible(false);
+        dataLabel.setVisible(false);
 
         //initialize tables
         initializeDiskTable();
         initializeMemoryTable();
         initializePageTable();
         initializeTLB();
-
     }
 
     @FXML
-    public void clickDiskTable(MouseEvent event)
-    {
+    public void clickDiskTable(MouseEvent event) {
         System.out.println("Clicked table");
         //System.out.println("Key: " + diskTable.getSelectionModel().getSelectedItem().getVirtualPageNumber());
+    }
+
+    @FXML
+    private void comboBoxSelected(ActionEvent event) {
+        System.out.println(commandComboBox.getSelectionModel().getSelectedItem());
+        command = commandComboBox.getSelectionModel().getSelectedItem();
+        switch (command) {
+            case "LOAD": dataTextField.setVisible(false);
+                         dataLabel.setVisible(false);
+                         break;
+            case "STORE": dataTextField.setVisible(true);
+                dataLabel.setVisible(true);
+                break;
+        }
+    }
+
+    @FXML
+    private void executeCommand(ActionEvent event) {
+        switch (command) {
+            case "LOAD": executeLoad();
+                break;
+            case "STORE": executeStore();
+                break;
+        }
+    }
+
+    private void updateTLBTable() {
+        Map<Integer, PageTableEntry> tlbContents = simulator.getTLBContents();
+        tlbTable.setItems(extractPageTableEntries(tlbContents));
+    }
+
+    private void updatePageTable() {
+        Map<Integer, PageTableEntry> pageTableContents = simulator.getPageTableContents();
+        pageTable.setItems(extractPageTableEntries(pageTableContents));
+    }
+
+    private void updateDiskTable() {
+        Map<Integer, Map<Integer, Integer>> diskContents = simulator.getDiskContents();
+        diskTable.setItems(extractDiskItems(diskContents));
+    }
+
+    private void updateMemoryTable() {
+        Map<Integer, Map<Integer, Integer>> memoryContents = simulator.getMainMemoryContents();
+        memoryTable.setItems(extractMemoryItems(memoryContents));
+    }
+
+    private void updateTables() {
+        updateTLBTable();
+        updatePageTable();
+        updateDiskTable();
+        updateMemoryTable();
+    }
+    private int parseAddressTextField() throws Exception {
+        if (addressTextField.getText() == null) {
+            //empty field
+            throw new Exception("Address field cannot be empty!");
+        }
+        int address = -1;
+        try {
+            address = Integer.parseInt(addressTextField.getText());
+        } catch (Exception e) {
+            throw new Exception("Address field must contain a number!");
+        }
+        if (address < 0 && address > maxAddress - 1) {
+            throw new Exception("Incorrect address value! Must be between 0 and " + (maxAddress - 1));
+        }
+        return address;
+    }
+
+    private int parseDataTextField() throws Exception {
+        if (dataTextField.getText() == null) {
+            //empty field
+            throw new Exception("Data field cannot be empty!");
+        }
+        try {
+            int data = Integer.parseInt(dataTextField.getText());
+            return data;
+        } catch (Exception e) {
+            throw new Exception("Data field must contain a number!");
+        }
+    }
+
+    private void executeLoad() {
+        try {
+            int address = parseAddressTextField();
+            errorLabel.setText("");
+            simulator.loadData(address);
+            updateTables();
+
+        } catch (Exception e) {
+            errorLabel.setText(e.getMessage());
+        }
+    }
+
+    private void executeStore() {
+        try {
+            int address = parseAddressTextField();
+            int data = parseDataTextField();
+            errorLabel.setText("");
+            simulator.storeData(address, data);
+            updateTables();
+        } catch (Exception e) {
+            errorLabel.setText(e.getMessage());
+        }
     }
 
     private void initializeDiskTable() {

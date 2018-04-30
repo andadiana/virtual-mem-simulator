@@ -2,51 +2,62 @@
 
 <?import java.lang.*?>
 <?import java.util.*?>
+<?import javafx.collections.*?>
 <?import javafx.scene.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
 <AnchorPane prefHeight="750.0" prefWidth="1200.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/2.2" fx:controller="presentation.controllers.SimulatorWindow">
   <children>
-    <BorderPane layoutX="313.0" layoutY="184.0" prefHeight="-1.0" prefWidth="-1.0">
-      <bottom>
-        <TableView fx:id="tlbTable" prefHeight="143.0" prefWidth="671.0000999999975">
-          <columns>
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="172.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnTLBTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="153.0" text="FrameNumber" fx:id="frameNumberColumnTLBTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="165.0" text="Present" fx:id="presentColumnTLBTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="Dirty" fx:id="dirtyColumnTLBTable" />
-          </columns>
-        </TableView>
-      </bottom>
-      <center>
-        <TableView fx:id="pageTable" prefHeight="200.0" prefWidth="200.0">
-          <columns>
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnPageTable" />
-            <TableColumn prefWidth="75.0" text="FrameNumber" fx:id="pteFrameNumberColumnPageTable" />
-            <TableColumn prefWidth="75.0" text="Present" fx:id="ptePresentColumnPageTable" />
-            <TableColumn prefWidth="75.0" text="Dirty" fx:id="pteDirtyColumnPageTable" />
-          </columns>
-        </TableView>
-      </center>
-      <left>
-        <TableView fx:id="memoryTable" prefHeight="200.0" prefWidth="471.0">
-          <columns>
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="176.0" text="Frame Number" fx:id="frameNumberColumnMemoryTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="134.0" text="Address" fx:id="addressColumnMemoryTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="139.0" text="Data" fx:id="dataColumnMemoryTable" />
-          </columns>
-        </TableView>
-      </left>
-      <top>
-        <TableView fx:id="diskTable" onMouseClicked="#clickDiskTable" prefHeight="201.0" prefWidth="843.0">
-          <columns>
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="183.0" text="VirtualPageNumber" fx:id="virtualAddressColumnDiskTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="143.0" text="Address" fx:id="addressColumnDiskTable" />
-            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="123.0" text="Data" fx:id="dataColumnDiskTable" />
-          </columns>
-        </TableView>
-      </top>
-    </BorderPane>
+    <TableView fx:id="memoryTable" layoutX="691.0" layoutY="315.0" prefHeight="200.0" prefWidth="471.0">
+      <columns>
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="176.0" text="Frame Number" fx:id="frameNumberColumnMemoryTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="134.0" text="Address" fx:id="addressColumnMemoryTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="139.0" text="Data" fx:id="dataColumnMemoryTable" />
+      </columns>
+    </TableView>
+    <TableView fx:id="diskTable" layoutX="695.0" layoutY="57.0" onMouseClicked="#clickDiskTable" prefHeight="200.0" prefWidth="463.0">
+      <columns>
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="183.0" text="VirtualPageNumber" fx:id="virtualAddressColumnDiskTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="143.0" text="Address" fx:id="addressColumnDiskTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="123.0" text="Data" fx:id="dataColumnDiskTable" />
+      </columns>
+    </TableView>
+    <ComboBox fx:id="commandComboBox" layoutX="57.0" layoutY="64.0" minHeight="29.0" onAction="#comboBoxSelected" prefHeight="29.0" prefWidth="134.0">
+      <items>
+        <FXCollections fx:factory="observableArrayList">
+          <String fx:value="Item 1" />
+          <String fx:value="Item 2" />
+          <String fx:value="Item 3" />
+        </FXCollections>
+      </items>
+    </ComboBox>
+    <TableView fx:id="pageTable" layoutX="224.0" layoutY="315.0" prefHeight="199.9998779296875" prefWidth="365.0">
+      <columns>
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnPageTable" />
+        <TableColumn prefWidth="75.0" text="FrameNumber" fx:id="pteFrameNumberColumnPageTable" />
+        <TableColumn prefWidth="75.0" text="Present" fx:id="ptePresentColumnPageTable" />
+        <TableColumn prefWidth="75.0" text="Dirty" fx:id="pteDirtyColumnPageTable" />
+      </columns>
+    </TableView>
+    <TableView fx:id="tlbTable" layoutX="432.0" layoutY="565.0" prefHeight="143.0" prefWidth="671.0000999999975">
+      <columns>
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="172.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnTLBTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="153.0" text="FrameNumber" fx:id="frameNumberColumnTLBTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="165.0" text="Present" fx:id="presentColumnTLBTable" />
+        <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="Dirty" fx:id="dirtyColumnTLBTable" />
+      </columns>
+    </TableView>
+    <Label layoutX="795.0" layoutY="14.0" text="DISK" />
+    <Label layoutX="795.0" layoutY="275.0" text="MAIN MEMORY" />
+    <Label layoutX="307.0" layoutY="275.0" text="PAGE TABLE" />
+    <Label layoutX="671.0" layoutY="525.0" text="TLB" />
+    <TextField fx:id="addressTextField" layoutX="152.0" layoutY="112.0" prefHeight="36.0" prefWidth="144.0" />
+    <TextField fx:id="dataTextField" layoutX="152.0" layoutY="180.0" prefHeight="35.9998779296875" prefWidth="144.0" />
+    <Label layoutX="22.0" layoutY="112.0" text="Address" />
+    <Label fx:id="dataLabel" layoutX="31.0" layoutY="178.0" text="Data" />
+    <Button fx:id="button" layoutX="62.0" layoutY="249.0" minHeight="36.0" mnemonicParsing="false" onAction="#executeCommand" prefHeight="36.0" prefWidth="94.0" text="Execute" />
+    <Label fx:id="errorLabel" layoutX="203.0" layoutY="227.0" text="" />
+    <Label fx:id="simulatorDetailsLabel" layoutX="39.0" layoutY="6.0" text="" />
   </children>
 </AnchorPane>
