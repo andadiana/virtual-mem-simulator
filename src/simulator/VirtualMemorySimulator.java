@@ -3,10 +3,7 @@ package simulator;
 import simulator.util.Logarithm;
 
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 
 public class VirtualMemorySimulator {
 
@@ -22,12 +19,15 @@ public class VirtualMemorySimulator {
     private Disk disk;
     private TLB tlb;
 
+    private List<Observer> observers;
+
     //table to store last used times for each frame number in the main memory
     //use this for the Least Recently Used page replacement algorithm, to decide which page to replace
     private Map<Integer, Timestamp> lruTable;
 
     //least recently used table for TLB
     private Map<Integer, Timestamp> tlbLRUTable;
+
 
     //Constructors
     public VirtualMemorySimulator(int virtualMemorySize, int mainMemorySize, int pageSize, int tlbSize){
@@ -57,6 +57,9 @@ public class VirtualMemorySimulator {
         for (int i = 0; i < tlbSize; i++) {
             tlbLRUTable.put(i, null);
         }
+
+        //initialize observers list
+        observers = new ArrayList<>();
     }
 
     //Getters and setters
@@ -108,6 +111,16 @@ public class VirtualMemorySimulator {
         this.offsetNrBits = offsetNrBits;
     }
 
+    private void notify(Queue<OperationStep> operationSteps) {
+        for (Observer o:observers) {
+            o.update(operationSteps);
+        }
+    }
+
+    public void addObserver(Observer o) {
+        observers.add(o);
+    }
+
     private int getLeastRecentlyUsedEntry(Map<Integer, Timestamp> table) {
         Map.Entry<Integer, Timestamp> firstEntry = table.entrySet().stream().findFirst().get();
         int frameNr = firstEntry.getKey();
@@ -155,7 +168,7 @@ public class VirtualMemorySimulator {
     }
 
     public int loadData(int address) {
-        //TODO maybe add delay between different steps so that the user can visualize each step?
+        Queue<OperationStep> operationSteps = new LinkedList<>();
 
         VirtualAddress virtualAddress = constructVirtualAddress(address);
         System.out.println("Virtual address is: " + virtualAddress);
@@ -171,8 +184,13 @@ public class VirtualMemorySimulator {
             mainMemory.printPageContents(physicalAddress.getFrameNumber());
             System.out.println("Got physical address from TLB!");
             tlb.printContents();
+
+            operationSteps.add(new OperationStep(OperationType.TLB_HIT, virtualAddress.getVirtualPageNumber()));
+            operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, physicalAddress.getFrameNumber()));
         }
         else {
+            operationSteps.add(new OperationStep(OperationType.TLB_MISS, virtualAddress.getVirtualPageNumber()));
+
             if (pageTable.isPresent(virtualAddress.getVirtualPageNumber())) {
                 //translate address and load from main memory
                 int frameNumber = pageTable.getFrameNumber(virtualAddress.getVirtualPageNumber());
@@ -181,10 +199,15 @@ public class VirtualMemorySimulator {
                 System.out.println("updated timestamp: " + lruTable.get(frameNumber));
                 loadData = mainMemory.load(physicalAddress);
 
-                System.out.println("Got physical address from page table!");
+                operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_HIT, virtualAddress.getVirtualPageNumber()));
+                operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, virtualAddress.getVirtualPageNumber()));
+
             } else {
+                operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_MISS, virtualAddress.getVirtualPageNumber()));
+
                 //load from disk
                 Page page = disk.load(virtualAddress.getVirtualPageNumber());
+                operationSteps.add(new OperationStep(OperationType.DISK_LOAD, virtualAddress.getVirtualPageNumber()));
 
                 //if memory is full, apply page replacement algorithm to evict least recently used page
                 if (mainMemory.isFull()) {
@@ -195,18 +218,24 @@ public class VirtualMemorySimulator {
                     if (pageTable.isDirty(lruVirtualPageNumber)) {
                         Page evictedPage = mainMemory.getPage(lruFrameNr);
                         disk.store(lruVirtualPageNumber, evictedPage);
+                        operationSteps.add(new OperationStep(OperationType.WRITE_DIRTY_PAGE, lruFrameNr));
                         pageTable.setDirty(lruVirtualPageNumber, false);
                     }
 
                     pageTable.setPresent(lruVirtualPageNumber, false);
 
                     mainMemory.bringPageToMemory(page, lruFrameNr);
+                    operationSteps.add(new OperationStep(OperationType.REPLACE_IN_MEMORY, lruFrameNr));
+
                     pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), lruFrameNr);
                     lruTable.put(lruFrameNr, new Timestamp(System.currentTimeMillis())); //update LRU table
                     System.out.println("updated timestamp: " + lruTable.get(lruFrameNr));
                     PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, lruFrameNr);
                     loadData = mainMemory.load(physicalAddress);
-                    System.out.println("Had to bring page from disk and replace another one in memory");
+
+                    operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
+                    operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, physicalAddress.getFrameNumber()));
+
                 } else {
                     int frameNumber = mainMemory.bringPageToMemory(page);
                     pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), frameNumber);
@@ -214,18 +243,24 @@ public class VirtualMemorySimulator {
                     System.out.println("updated timestamp: " + lruTable.get(frameNumber));
                     PhysicalAddress physicalAddress = translateVirtualAddress(virtualAddress, frameNumber);
                     loadData = mainMemory.load(physicalAddress);
-                    System.out.println("Had to bring page from disk and there was enough space in memory");
+
+                    operationSteps.add(new OperationStep(OperationType.BRING_TO_MEMORY, frameNumber));
+                    operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
+                    operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, physicalAddress.getFrameNumber()));
                 }
             }
             //bring updated page table entry to TLB
             updateTLB(virtualAddress.getVirtualPageNumber());
-            System.out.println("Updated TLB");
+            operationSteps.add(new OperationStep(OperationType.TLB_UPDATE, virtualAddress.getVirtualPageNumber()));
+
             tlb.printContents();
         }
+        notify(operationSteps);
         return loadData;
     }
 
     public void storeData(int address, int data) {
+        Queue<OperationStep> operationSteps = new LinkedList<>();
 
         VirtualAddress virtualAddress = constructVirtualAddress(address);
         if (tlb.containsEntry(virtualAddress.getVirtualPageNumber())) {
@@ -241,8 +276,12 @@ public class VirtualMemorySimulator {
 
             tlb.printContents();
             System.out.println("Got physical address from TLB!");
+            operationSteps.add(new OperationStep(OperationType.TLB_HIT, virtualAddress.getVirtualPageNumber()));
+            operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, physicalAddress.getFrameNumber()));
         }
         else {
+            operationSteps.add(new OperationStep(OperationType.TLB_MISS, virtualAddress.getVirtualPageNumber()));
+
             if (pageTable.isPresent(virtualAddress.getVirtualPageNumber())) {
                 //translate address and load from main memory
                 int frameNumber = pageTable.getFrameNumber(virtualAddress.getVirtualPageNumber());
@@ -253,9 +292,15 @@ public class VirtualMemorySimulator {
                 lruTable.put(frameNumber, new Timestamp(System.currentTimeMillis())); //update LRU table
                 mainMemory.printPageContents(physicalAddress.getFrameNumber());
                 System.out.println("Got physical address from page table!");
+
+                operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_HIT, virtualAddress.getVirtualPageNumber()));
+                operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, virtualAddress.getVirtualPageNumber()));
             } else {
+                operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_MISS, virtualAddress.getVirtualPageNumber()));
+
                 //load page from disk
                 Page page = disk.load(virtualAddress.getVirtualPageNumber());
+                operationSteps.add(new OperationStep(OperationType.DISK_LOAD, virtualAddress.getVirtualPageNumber()));
 
                 if (mainMemory.isFull()) {
                     int lruFrameNr = getLeastRecentlyUsedEntry(lruTable);
@@ -266,11 +311,14 @@ public class VirtualMemorySimulator {
                         Page evictedPage = mainMemory.getPage(lruFrameNr);
                         disk.store(lruVirtualPageNumber, evictedPage);
                         pageTable.setDirty(lruVirtualPageNumber, false);
+                        operationSteps.add(new OperationStep(OperationType.WRITE_DIRTY_PAGE, lruFrameNr));
                     }
 
                     pageTable.setPresent(lruVirtualPageNumber, false);
 
                     mainMemory.bringPageToMemory(page, lruFrameNr);
+                    operationSteps.add(new OperationStep(OperationType.REPLACE_IN_MEMORY, lruFrameNr));
+
                     pageTable.newPageTableEntry(virtualAddress.getVirtualPageNumber(), lruFrameNr);
                     lruTable.put(lruFrameNr, new Timestamp(System.currentTimeMillis())); //update LRU table
                     System.out.println("updated timestamp: " + lruTable.get(lruFrameNr));
@@ -280,6 +328,9 @@ public class VirtualMemorySimulator {
                     pageTable.setDirty(virtualAddress.getVirtualPageNumber(), true);
 
                     System.out.println("Had to bring page from disk and replace another one in memory");
+
+                    operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
+                    operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, physicalAddress.getFrameNumber()));
 
                 } else {
                     int frameNumber = mainMemory.bringPageToMemory(page);
@@ -291,15 +342,22 @@ public class VirtualMemorySimulator {
                     mainMemory.store(physicalAddress, data);
                     mainMemory.printPageContents(frameNumber);
                     System.out.println("Had to bring page from disk and there was enough space in memory");
+
+                    operationSteps.add(new OperationStep(OperationType.BRING_TO_MEMORY, frameNumber));
+                    operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
+                    operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, physicalAddress.getFrameNumber()));
                 }
             }
             //bring updated page table entry to TLB
             updateTLB(virtualAddress.getVirtualPageNumber());
+            operationSteps.add(new OperationStep(OperationType.TLB_UPDATE, virtualAddress.getVirtualPageNumber()));
+
             System.out.println("Updated TLB");
             tlb.printContents();
-
         }
+        notify(operationSteps);
     }
+
 
     public void printVirtualMemorySimulatorStatus() {
         pageTable.printContents();
