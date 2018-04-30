@@ -138,6 +138,22 @@ public class VirtualMemorySimulator {
         tlbLRUTable.put(virtualPageNumber, new Timestamp(System.currentTimeMillis())); //update LRU table for TLB
     }
 
+    public Map<Integer, Map<Integer, Integer>> getDiskContents() {
+        return disk.getDiskContents();
+    }
+
+    public Map<Integer, Map<Integer, Integer>> getMainMemoryContents() {
+        return mainMemory.getMemoryContents();
+    }
+
+    public Map<Integer, PageTableEntry> getPageTableContents() {
+        return pageTable.getPageTableContents();
+    }
+
+    public Map<Integer, PageTableEntry> getTLBContents() {
+        return tlb.getTLBContents();
+    }
+
     public int loadData(int address) {
         //TODO maybe add delay between different steps so that the user can visualize each step?
 

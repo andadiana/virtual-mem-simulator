@@ -41,4 +41,12 @@ public class Page {
             System.out.println(e.getKey() + ": " + e.getValue());
         }
     }
+
+    public Map<Integer, Integer> getPageContents() {
+        Map<Integer, Integer> pageCopy = new HashMap<>();
+        for (Map.Entry<Integer, Integer> e: pageContents.entrySet()) {
+            pageCopy.put(e.getKey(), e.getValue());
+        }
+        return pageCopy;
+    }
 }

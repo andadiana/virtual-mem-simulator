@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane prefHeight="750.0" prefWidth="1200.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/2.2" fx:controller="presentation.controllers.SimulatorWindow">
+  <children>
+    <BorderPane layoutX="313.0" layoutY="184.0" prefHeight="-1.0" prefWidth="-1.0">
+      <bottom>
+        <TableView fx:id="tlbTable" prefHeight="143.0" prefWidth="671.0000999999975">
+          <columns>
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="172.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnTLBTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="153.0" text="FrameNumber" fx:id="frameNumberColumnTLBTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="165.0" text="Present" fx:id="presentColumnTLBTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="Dirty" fx:id="dirtyColumnTLBTable" />
+          </columns>
+        </TableView>
+      </bottom>
+      <center>
+        <TableView fx:id="pageTable" prefHeight="200.0" prefWidth="200.0">
+          <columns>
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="132.0" text="VirtualPageNumber" fx:id="virtualPageNumberColumnPageTable" />
+            <TableColumn prefWidth="75.0" text="FrameNumber" fx:id="pteFrameNumberColumnPageTable" />
+            <TableColumn prefWidth="75.0" text="Present" fx:id="ptePresentColumnPageTable" />
+            <TableColumn prefWidth="75.0" text="Dirty" fx:id="pteDirtyColumnPageTable" />
+          </columns>
+        </TableView>
+      </center>
+      <left>
+        <TableView fx:id="memoryTable" prefHeight="200.0" prefWidth="471.0">
+          <columns>
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="176.0" text="Frame Number" fx:id="frameNumberColumnMemoryTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="134.0" text="Address" fx:id="addressColumnMemoryTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="139.0" text="Data" fx:id="dataColumnMemoryTable" />
+          </columns>
+        </TableView>
+      </left>
+      <top>
+        <TableView fx:id="diskTable" onMouseClicked="#clickDiskTable" prefHeight="201.0" prefWidth="843.0">
+          <columns>
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="183.0" text="VirtualPageNumber" fx:id="virtualAddressColumnDiskTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="143.0" text="Address" fx:id="addressColumnDiskTable" />
+            <TableColumn maxWidth="5000.0" minWidth="10.0" prefWidth="123.0" text="Data" fx:id="dataColumnDiskTable" />
+          </columns>
+        </TableView>
+      </top>
+    </BorderPane>
+  </children>
+</AnchorPane>

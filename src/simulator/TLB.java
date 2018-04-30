@@ -81,4 +81,14 @@ public class TLB {
         }
         System.out.println("----------------------");
     }
+
+    public Map<Integer, PageTableEntry> getTLBContents() {
+        Map<Integer, PageTableEntry> tlbCopy = new HashMap<>();
+        for (Map.Entry<Integer, PageTableEntry> e: tlb.entrySet()) {
+            PageTableEntry newEntry = new PageTableEntry(
+                    e.getValue().getFrameNumber(), e.getValue().isPresent(), e.getValue().isDirty());
+            tlbCopy.put(e.getKey(), newEntry);
+        }
+        return tlbCopy;
+    }
 }

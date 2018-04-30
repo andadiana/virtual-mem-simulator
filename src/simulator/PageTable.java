@@ -69,4 +69,14 @@ public class PageTable {
         System.out.println("----------------------");
     }
 
+    public Map<Integer, PageTableEntry> getPageTableContents() {
+        Map<Integer, PageTableEntry> pageTableCopy = new HashMap<>();
+        for (Map.Entry<Integer, PageTableEntry> e: pageTable.entrySet()) {
+            PageTableEntry newEntry = new PageTableEntry(
+                    e.getValue().getFrameNumber(), e.getValue().isPresent(), e.getValue().isDirty());
+            pageTableCopy.put(e.getKey(), newEntry);
+        }
+        return pageTableCopy;
+    }
+
 }

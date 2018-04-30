@@ -75,4 +75,21 @@ public class MainMemory {
     public void printPageContents(int frameNumber) {
         memory.get(frameNumber).printContents();
     }
+
+    public Map<Integer, Map<Integer, Integer>> getMemoryContents() {
+        Map<Integer, Map<Integer, Integer>> memoryCopy = new HashMap<>();
+        for (Map.Entry<Integer, Page> e: memory.entrySet()) {
+            Map<Integer, Integer> pageCopy = e.getValue().getPageContents();
+            //addresses with offset
+            int virtualPageNumber = e.getKey();
+            Map<Integer, Integer> pageCopyWithOffsets = new HashMap<>();
+            for(Map.Entry<Integer, Integer> pe: pageCopy.entrySet()) {
+                int offset = pe.getKey();
+                int address = virtualPageNumber * pageSize + offset;
+                pageCopyWithOffsets.put(address, pe.getValue());
+            }
+            memoryCopy.put(e.getKey(), pageCopyWithOffsets);
+        }
+        return memoryCopy;
+    }
 }
