@@ -3,15 +3,20 @@ package presentation.controllers;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
 import javafx.event.ActionEvent;
+import javafx.stage.Stage;
 import presentation.data.DiskItem;
 import presentation.data.MemoryItem;
 import presentation.data.PageTableItem;
 import simulator.*;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Queue;
 import java.util.stream.Collectors;
@@ -114,10 +119,18 @@ public class SimulatorWindow implements Observer{
     @FXML
     private TextField physicalAddressOffsetField;
 
+    @FXML
+    private Button backButton;
+
     private VirtualMemorySimulator simulator;
     private String command;
     private int maxAddress;
     private Queue<OperationStep> operationSteps;
+
+    private int virtualMemorySize;
+    private int mainMemorySize;
+    private int pageSize;
+    private int tlbSize;
 
     public void update(Queue<OperationStep> operationSteps) {
         for (OperationStep o: operationSteps) {
@@ -126,13 +139,45 @@ public class SimulatorWindow implements Observer{
         this.operationSteps = operationSteps;
     }
 
-    @FXML
-    private void initialize() {
+    public void init() {
 
         int virtualMemorySize = 16;
         int mainMemorySize = 8;
         int pageSize = 2;
         int tlbSize = 3;
+
+        simulator = new VirtualMemorySimulator(virtualMemorySize, mainMemorySize, pageSize, tlbSize);
+        simulator.addObserver(this);
+        maxAddress = simulator.getVirtualMemorySize();
+
+        simulatorDetailsLabel.setText("Simulator details: Virtual memory size: " + virtualMemorySize + ", main memory " +
+                "size: " + mainMemorySize + ", page size: " + pageSize + ", tlb size: " + tlbSize);
+
+        ObservableList<String> options = FXCollections.observableArrayList("LOAD", "STORE");
+        commandComboBox.setItems(options);
+        commandComboBox.getSelectionModel().select(0);
+        command = commandComboBox.getSelectionModel().getSelectedItem();
+        dataTextField.setVisible(false);
+        dataLabel.setVisible(false);
+        nextButton.setVisible(false);
+        operationsStatus.setText("");
+        virtualAddressPageNumberField.setText("");
+        virtualAddressOffsetField.setText("");
+        physicalAddressFrameNumberField.setText("");
+        physicalAddressOffsetField.setText("");
+
+        //initialize tables
+        initializeDiskTable();
+        initializeMemoryTable();
+        initializePageTable();
+        initializeTLB();
+    }
+
+    public void initData(int virtualMemorySize, int mainMemorySize, int pageSize, int tlbSize) {
+        this.virtualMemorySize = virtualMemorySize;
+        this.mainMemorySize = mainMemorySize;
+        this.pageSize = pageSize;
+        this.tlbSize = tlbSize;
 
         simulator = new VirtualMemorySimulator(virtualMemorySize, mainMemorySize, pageSize, tlbSize);
         simulator.addObserver(this);
@@ -189,6 +234,18 @@ public class SimulatorWindow implements Observer{
             case "STORE": executeStore();
                 break;
         }
+    }
+
+    @FXML
+    private void clickBackButton(ActionEvent event) throws IOException{
+        Parent root = FXMLLoader.load(getClass().getResource("../SetupWindow.fxml"));
+        Stage stage = new Stage();
+        stage.setTitle("Virtual memory simulator");
+        stage.setScene(new Scene(root, 600, 400));
+        stage.show();
+
+        Stage currentStage = (Stage) backButton.getScene().getWindow();
+        currentStage.close();
     }
 
     @FXML

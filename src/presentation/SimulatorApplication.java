@@ -17,9 +17,11 @@ public class SimulatorApplication extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception{
         stage = primaryStage;
-        Parent root = FXMLLoader.load(getClass().getResource("SimulatorWindow.fxml"));
+        Parent root = FXMLLoader.load(getClass().getResource("SetupWindow.fxml"));
+//        Parent root = FXMLLoader.load(getClass().getResource("SimulatorWindow.fxml"));
         stage.setTitle("Virtual Memory Simulator");
-        stage.setScene(new Scene(root, 1200, 750));
+//        stage.setScene(new Scene(root, 1200, 750));
+        stage.setScene(new Scene(root, 600, 400));
         stage.show();
     }
 
