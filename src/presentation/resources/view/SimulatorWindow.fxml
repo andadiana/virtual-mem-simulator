@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.net.*?>
+<?import java.util.*?>
+<?import javafx.collections.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="670.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="presentation.controllers.SimulatorWindow">
+  <children>
+    <TableView fx:id="memoryTable" layoutX="287.0" layoutY="466.0" prefHeight="162.0" prefWidth="292.0" stylesheets="@../css/style-class.css">
+      <columns>
+        <TableColumn fx:id="frameNumberColumnMemoryTable" maxWidth="5000.0" minWidth="10.0" prefWidth="126.0" text="Frame Number" />
+        <TableColumn fx:id="addressColumnMemoryTable" maxWidth="5000.0" minWidth="10.0" prefWidth="74.0" text="Address" />
+        <TableColumn fx:id="dataColumnMemoryTable" maxWidth="5000.0" minWidth="10.0" prefWidth="81.0" text="Data" />
+      </columns>
+    </TableView>
+    <TableView fx:id="diskTable" layoutX="641.0" layoutY="466.0" onMouseClicked="#clickDiskTable" prefHeight="162.0" prefWidth="292.0" stylesheets="@../css/style-class.css">
+      <columns>
+        <TableColumn fx:id="virtualAddressColumnDiskTable" maxWidth="5000.0" minWidth="10.0" prefWidth="140.0" text="VirtualPageNumber" />
+        <TableColumn fx:id="addressColumnDiskTable" maxWidth="5000.0" minWidth="10.0" prefWidth="77.0" text="Address" />
+        <TableColumn fx:id="dataColumnDiskTable" maxWidth="5000.0" minWidth="10.0" prefWidth="61.0" text="Data" />
+      </columns>
+    </TableView>
+    <ComboBox fx:id="commandComboBox" layoutX="32.0" layoutY="41.0" minHeight="21.0" onAction="#comboBoxSelected" prefHeight="21.0" prefWidth="131.0">
+      <items>
+        <FXCollections fx:factory="observableArrayList">
+          <String fx:value="Item 1" />
+          <String fx:value="Item 2" />
+          <String fx:value="Item 3" />
+        </FXCollections>
+      </items>
+    </ComboBox>
+    <TableView fx:id="pageTable" layoutX="340.0" layoutY="308.0" prefHeight="119.0" prefWidth="573.0" stylesheets="@../css/style-class.css">
+      <columns>
+        <TableColumn fx:id="virtualPageNumberColumnPageTable" maxWidth="5000.0" minWidth="10.0" prefWidth="176.0" text="VirtualPageNumber" />
+        <TableColumn fx:id="pteFrameNumberColumnPageTable" maxWidth="5000.0" minWidth="10.0" prefWidth="170.0" text="FrameNumber" />
+        <TableColumn fx:id="ptePresentColumnPageTable" maxWidth="5000.0" minWidth="10.0" prefWidth="111.0" text="Present" />
+        <TableColumn fx:id="pteDirtyColumnPageTable" maxWidth="5000.0" minWidth="10.0" prefWidth="107.0" text="Dirty" />
+      </columns>
+    </TableView>
+    <TableView fx:id="tlbTable" layoutX="340.0" layoutY="172.0" prefHeight="108.0" prefWidth="573.0">
+      <columns>
+        <TableColumn fx:id="virtualPageNumberColumnTLBTable" maxWidth="5000.0" minWidth="10.0" prefWidth="180.0" text="VirtualPageNumber" />
+        <TableColumn fx:id="frameNumberColumnTLBTable" maxWidth="5000.0" minWidth="10.0" prefWidth="159.0" text="FrameNumber" />
+        <TableColumn fx:id="presentColumnTLBTable" maxWidth="5000.0" minWidth="10.0" prefWidth="123.0" text="Present" />
+        <TableColumn fx:id="dirtyColumnTLBTable" maxWidth="5000.0" minWidth="10.0" prefWidth="99.0" text="Dirty" />
+      </columns>
+      <stylesheets>
+        <URL value="@../css/style-class.css" />
+      </stylesheets>
+    </TableView>
+    <Label fx:id="diskLabel" layoutX="772.0" layoutY="442.0" text="DISK">
+      <font>
+        <Font size="14.0" fx:id="x1" />
+      </font>
+    </Label>
+    <Label fx:id="mainMemoryLabel" layoutX="372.0" layoutY="442.0" text="MAIN MEMORY">
+         <font>
+            <Font size="14.0" />
+         </font></Label>
+    <Label fx:id="pageTableLabel" layoutX="589.0" layoutY="289.0" text="PAGE TABLE">
+         <font>
+            <Font size="14.0" />
+         </font></Label>
+    <Label fx:id="tlbLabel" layoutX="615.0" layoutY="149.0" text="TLB">
+         <font>
+            <Font size="14.0" />
+         </font></Label>
+    <TextField fx:id="addressTextField" layoutX="107.0" layoutY="70.0" prefHeight="20.0" prefWidth="110.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <TextField fx:id="dataTextField" layoutX="107.0" layoutY="127.0" prefHeight="20.0" prefWidth="110.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <Label layoutX="45.0" layoutY="75.0" text="Address">
+      <font>
+        <Font size="12.0" fx:id="x2" />
+      </font>
+    </Label>
+    <Label fx:id="dataLabel" font="$x2" layoutX="41.0" layoutY="127.0" text="Data" />
+    <Button id="button" fx:id="executeButton" font="$x2" layoutX="44.0" layoutY="170.0" minHeight="21.0" mnemonicParsing="false" onAction="#clickExecuteButton" prefHeight="21.0" prefWidth="63.0" text="Execute" />
+    <Label fx:id="errorLabel" layoutX="123.0" layoutY="409.0" prefHeight="45.0" prefWidth="145.0" text="" />
+    <Label fx:id="simulatorDetailsLabel" layoutX="32.0" layoutY="10.0" prefHeight="17.0" prefWidth="833.0" text="">
+         <font>
+            <Font size="12.0" />
+         </font></Label>
+    <TextField fx:id="virtualAddressPageNumberField" layoutX="285.0" layoutY="60.0" prefHeight="20.0" prefWidth="131.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <TextField fx:id="physicalAddressFrameNumberField" layoutX="656.0" layoutY="60.0" prefHeight="20.0" prefWidth="131.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <Label layoutX="375.0" layoutY="32.0" text="Virtual address">
+      <font>
+        <Font size="14.0" fx:id="x4" />
+      </font>
+    </Label>
+    <Label layoutX="302.0" layoutY="92.0" minHeight="21.0" prefHeight="21.0" prefWidth="131.0" text="Virtual Page Number">
+      <font>
+        <Font size="11.0" fx:id="x3" />
+      </font>
+    </Label>
+    <Label layoutX="686.0" layoutY="95.0" text="Frame number">
+         <font>
+            <Font size="11.0" />
+         </font></Label>
+    <TextField fx:id="virtualAddressOffsetField" layoutX="431.0" layoutY="60.0" prefHeight="20.0" prefWidth="100.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <TextField id="virtualAddressOffsetField" fx:id="physicalAddressOffsetField" layoutX="802.0" layoutY="60.0" prefHeight="20.0" prefWidth="100.0">
+         <font>
+            <Font size="12.0" />
+         </font></TextField>
+    <Label font="$x3" layoutX="467.0" layoutY="95.0" text="offset" />
+    <Label font="$x3" layoutX="838.0" layoutY="95.0" text="offset" />
+    <Label font="$x4" layoutX="732.0" layoutY="28.0" minHeight="26.0" prefHeight="29.0" prefWidth="110.0" text="Physical address" />
+    <Button fx:id="nextButton" font="$x2" layoutX="132.0" layoutY="170.0" minHeight="21.0" mnemonicParsing="false" onAction="#clickNextButton" prefHeight="21.0" prefWidth="63.0" text="Next" />
+    <TextArea fx:id="operationsStatus" layoutX="41.0" layoutY="209.0" prefHeight="199.0" prefWidth="207.0" wrapText="true">
+         <font>
+            <Font size="12.0" />
+         </font></TextArea>
+    <Button fx:id="backButton" layoutX="35.0" layoutY="607.0" minHeight="21.0" mnemonicParsing="false" onAction="#clickBackButton" prefHeight="21.0" prefWidth="63.0" text="Back">
+         <font>
+            <Font size="12.0" />
+         </font></Button>
+  </children>
+</AnchorPane>

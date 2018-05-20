@@ -246,7 +246,7 @@ public class VirtualMemorySimulator {
 
                     operationSteps.add(new OperationStep(OperationType.BRING_TO_MEMORY, frameNumber));
                     operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
-                    operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, physicalAddress.getFrameNumber()));
+//                    operationSteps.add(new OperationStep(OperationType.LOAD_FROM_MEMORY, physicalAddress.getFrameNumber()));
                 }
             }
             //bring updated page table entry to TLB
@@ -345,7 +345,7 @@ public class VirtualMemorySimulator {
 
                     operationSteps.add(new OperationStep(OperationType.BRING_TO_MEMORY, frameNumber));
                     operationSteps.add(new OperationStep(OperationType.PAGE_TABLE_UPDATE, virtualAddress.getVirtualPageNumber()));
-                    operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, physicalAddress.getFrameNumber()));
+//                    operationSteps.add(new OperationStep(OperationType.STORE_IN_MEMORY, physicalAddress.getFrameNumber()));
                 }
             }
             //bring updated page table entry to TLB

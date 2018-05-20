@@ -1,6 +1,7 @@
 package presentation.controllers;
 
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -11,14 +12,15 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
 import javafx.event.ActionEvent;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import presentation.data.DiskItem;
 import presentation.data.MemoryItem;
 import presentation.data.PageTableItem;
 import simulator.*;
+import simulator.Observer;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static simulator.OperationType.*;
@@ -102,6 +104,18 @@ public class SimulatorWindow implements Observer{
     private Label errorLabel;
 
     @FXML
+    private Label tlbLabel;
+
+    @FXML
+    private Label pageTableLabel;
+
+    @FXML
+    private Label mainMemoryLabel;
+
+    @FXML
+    private Label diskLabel;
+
+    @FXML
     private Label simulatorDetailsLabel;
 
     @FXML
@@ -132,45 +146,27 @@ public class SimulatorWindow implements Observer{
     private int pageSize;
     private int tlbSize;
 
+    private ObservableList<PageTableItem> tlbObs;
+    private ObservableList<PageTableItem> pageTableObs;
+    private ObservableList<MemoryItem> memoryObs;
+    private ObservableList<DiskItem> diskObs;
+
+    private ObservableList<Integer> tlbHitRow;
+    private ObservableList<Integer> tlbUpdateRow;
+    private ObservableList<Integer> pageTableHitRow;
+    private ObservableList<Integer> pageTableUpdateRow;
+    private ObservableList<Integer> memoryHitRow;
+    private ObservableList<Integer> memoryUpdateRow;
+    private ObservableList<Integer> diskHitRow;
+    private ObservableList<Integer> diskUpdateRow;
+
+    private int loadResult;
+
     public void update(Queue<OperationStep> operationSteps) {
         for (OperationStep o: operationSteps) {
             System.out.println(o);
         }
         this.operationSteps = operationSteps;
-    }
-
-    public void init() {
-
-        int virtualMemorySize = 16;
-        int mainMemorySize = 8;
-        int pageSize = 2;
-        int tlbSize = 3;
-
-        simulator = new VirtualMemorySimulator(virtualMemorySize, mainMemorySize, pageSize, tlbSize);
-        simulator.addObserver(this);
-        maxAddress = simulator.getVirtualMemorySize();
-
-        simulatorDetailsLabel.setText("Simulator details: Virtual memory size: " + virtualMemorySize + ", main memory " +
-                "size: " + mainMemorySize + ", page size: " + pageSize + ", tlb size: " + tlbSize);
-
-        ObservableList<String> options = FXCollections.observableArrayList("LOAD", "STORE");
-        commandComboBox.setItems(options);
-        commandComboBox.getSelectionModel().select(0);
-        command = commandComboBox.getSelectionModel().getSelectedItem();
-        dataTextField.setVisible(false);
-        dataLabel.setVisible(false);
-        nextButton.setVisible(false);
-        operationsStatus.setText("");
-        virtualAddressPageNumberField.setText("");
-        virtualAddressOffsetField.setText("");
-        physicalAddressFrameNumberField.setText("");
-        physicalAddressOffsetField.setText("");
-
-        //initialize tables
-        initializeDiskTable();
-        initializeMemoryTable();
-        initializePageTable();
-        initializeTLB();
     }
 
     public void initData(int virtualMemorySize, int mainMemorySize, int pageSize, int tlbSize) {
@@ -227,6 +223,7 @@ public class SimulatorWindow implements Observer{
 
     @FXML
     private void clickExecuteButton(ActionEvent event) {
+        errorLabel.setText("");
         operationsStatus.setText("");
         switch (command) {
             case "LOAD": executeLoad();
@@ -238,26 +235,46 @@ public class SimulatorWindow implements Observer{
 
     @FXML
     private void clickBackButton(ActionEvent event) throws IOException{
-        Parent root = FXMLLoader.load(getClass().getResource("../SetupWindow.fxml"));
+        Parent root = FXMLLoader.load(getClass().getResource("../resources/view/SetupWindow.fxml"));
         Stage stage = new Stage();
         stage.setTitle("Virtual memory simulator");
-        stage.setScene(new Scene(root, 600, 400));
+        stage.setScene(new Scene(root, 350, 270));
         stage.show();
 
         Stage currentStage = (Stage) backButton.getScene().getWindow();
         currentStage.close();
     }
 
+    private void resetStyles() {
+        tlbLabel.getStyleClass().removeAll(Collections.singleton("red-label"));
+        pageTableLabel.getStyleClass().removeAll(Collections.singleton("red-label"));
+        mainMemoryLabel.getStyleClass().removeAll(Collections.singleton("red-label"));
+        diskLabel.getStyleClass().removeAll(Collections.singleton("red-label"));
+        tlbHitRow.clear();
+        tlbUpdateRow.clear();
+        pageTableHitRow.clear();
+        pageTableUpdateRow.clear();
+        memoryHitRow.clear();
+        memoryUpdateRow.clear();
+        diskHitRow.clear();
+        diskUpdateRow.clear();
+    }
+
     @FXML
     private void clickNextButton(ActionEvent event) {
         System.out.println("Operations steps (#): " + operationSteps.size());
         if (operationSteps.size() == 0) {
+            resetStyles();
             operationsStatus.setText("Finished operation!");
             nextButton.setVisible(false);
             executeButton.setVisible(true);
+            if (command.equals("LOAD")) {
+                errorLabel.setText("Load result is: " + loadResult);
+            }
 
         } else {
             OperationStep step = operationSteps.remove();
+            resetStyles();
             switch (step.getType()) {
                 case TLB_HIT:
                     updateTLB(TLB_HIT, step.getAddress());
@@ -300,20 +317,57 @@ public class SimulatorWindow implements Observer{
 
     }
 
+    private int getTLBTableIndex(int virtualPageNumber) {
+        int i = 0;
+        for (PageTableItem p: tlbObs) {
+            if (p.getVirtualPageNumber() == virtualPageNumber)
+                 return i;
+            i++;
+        }
+        return -1;
+    }
+
     private void updateTLB(OperationType type, int virtualPageNumber) {
         System.out.println("Update TLB");
         System.out.println(type);
         System.out.println(virtualPageNumber);
         switch (type) {
             case TLB_HIT:   operationsStatus.setText("TLB hit! Found TLB entry for virtual page number " + virtualPageNumber);
+                Map<Integer, PageTableEntry> tlbContents = simulator.getTLBContents();
+                tlbObs = extractPageTableEntries(tlbContents);
+                tlbTable.setItems(tlbObs);
+                int highlightedRow = getTLBTableIndex(virtualPageNumber);
+                if (highlightedRow != -1) {
+                    tlbHitRow.clear();
+                    tlbHitRow.add(highlightedRow);
+                }
                 break;
             case TLB_MISS:  operationsStatus.setText("TLB miss!");
+                if (! tlbLabel.getStyleClass().contains("red-label")) {
+                    tlbLabel.getStyleClass().add("red-label");
+                }
                 break;
             case TLB_UPDATE: operationsStatus.setText("Updating TLB entry for virtual page number " + virtualPageNumber);
-                Map<Integer, PageTableEntry> tlbContents = simulator.getTLBContents();
-                tlbTable.setItems(extractPageTableEntries(tlbContents));
+                tlbContents = simulator.getTLBContents();
+                tlbObs = extractPageTableEntries(tlbContents);
+                tlbTable.setItems(tlbObs);
+                highlightedRow = getTLBTableIndex(virtualPageNumber);
+                if (highlightedRow != -1) {
+                    tlbUpdateRow.clear();
+                    tlbUpdateRow.add(highlightedRow);
+                }
                 break;
         }
+    }
+
+    private int getPageTableIndex(int virtualPageNumber) {
+        int i = 0;
+        for (PageTableItem p: pageTableObs) {
+            if (p.getVirtualPageNumber() == virtualPageNumber)
+                return i;
+            i++;
+        }
+        return -1;
     }
 
     private void updatePageTable(OperationType type, int virtualPageNumber) {
@@ -322,14 +376,42 @@ public class SimulatorWindow implements Observer{
         System.out.println(virtualPageNumber);
         switch (type) {
             case PAGE_TABLE_HIT: operationsStatus.setText("Page table hit! Found entry for virtual page number " + virtualPageNumber);
+                Map<Integer, PageTableEntry> pageTableContents = simulator.getPageTableContents();
+                pageTableObs = extractPageTableEntries(pageTableContents);
+                pageTable.setItems(pageTableObs);
+                int highlightedRow = getPageTableIndex(virtualPageNumber);
+                if (highlightedRow != -1) {
+                    pageTableHitRow.clear();
+                    pageTableHitRow.add(highlightedRow);
+                }
                 break;
             case PAGE_TABLE_MISS: operationsStatus.setText("Page table miss!");
+                if (! pageTableLabel.getStyleClass().contains("red-label")) {
+                    pageTableLabel.getStyleClass().add("red-label");
+                }
                 break;
             case PAGE_TABLE_UPDATE: operationsStatus.setText("Updating page table entry for virtual page number " + virtualPageNumber);
-                Map<Integer, PageTableEntry> pageTableContents = simulator.getPageTableContents();
-                pageTable.setItems(extractPageTableEntries(pageTableContents));
+                pageTableContents = simulator.getPageTableContents();
+                pageTableObs = extractPageTableEntries(pageTableContents);
+                pageTable.setItems(pageTableObs);
+                highlightedRow = getPageTableIndex(virtualPageNumber);
+                if (highlightedRow != -1) {
+                    pageTableUpdateRow.clear();
+                    pageTableUpdateRow.add(highlightedRow);
+                }
                 break;
         }
+    }
+
+    private List<Integer> getDiskIndex(int virtualPageNumber) {
+        int i = 0;
+        List<Integer> indices = new ArrayList<>();
+        for (DiskItem d: diskObs) {
+            if (d.getVirtualPageNumber() == virtualPageNumber)
+                indices.add(i);
+            i++;
+        }
+        return indices;
     }
 
     private void updateDisk(OperationType type, int virtualPageNumber) {
@@ -339,12 +421,38 @@ public class SimulatorWindow implements Observer{
 
         switch (type) {
             case DISK_LOAD: operationsStatus.setText("Loading page " + virtualPageNumber + " from disk");
+                List<Integer> highlightedRows = getDiskIndex(virtualPageNumber);
+                if (!highlightedRows.isEmpty()) {
+                    diskHitRow.clear();
+                    for (Integer i: highlightedRows) {
+                        diskHitRow.add(i);
+                    }
+                }
                 break;
             case WRITE_DIRTY_PAGE: operationsStatus.setText("Writing dirty page " + virtualPageNumber + " to disk");
                 Map<Integer, Map<Integer, Integer>> diskContents = simulator.getDiskContents();
-                diskTable.setItems(extractDiskItems(diskContents));
+                diskObs = extractDiskItems(diskContents);
+                diskTable.setItems(diskObs);
+                highlightedRows = getDiskIndex(virtualPageNumber);
+                if (!highlightedRows.isEmpty()) {
+                    diskHitRow.clear();
+                    for (Integer i: highlightedRows) {
+                        diskHitRow.add(i);
+                    }
+                }
                 break;
         }
+    }
+
+    private List<Integer> getMemoryIndex(int frameNumber) {
+        int i = 0;
+        List<Integer> indices = new ArrayList<>();
+        for (MemoryItem m: memoryObs) {
+            if (m.getFrameNumber() == frameNumber)
+                indices.add(i);
+            i++;
+        }
+        return indices;
     }
 
     private void updateMemory(OperationType type, int frameNumber) {
@@ -356,21 +464,52 @@ public class SimulatorWindow implements Observer{
         switch (type) {
             case BRING_TO_MEMORY: operationsStatus.setText("Bringing page to memory at frame number " + frameNumber);
                 memoryContents = simulator.getMainMemoryContents();
-                memoryTable.setItems(extractMemoryItems(memoryContents));
+                memoryObs = extractMemoryItems(memoryContents);
+                memoryTable.setItems(memoryObs);
+                List<Integer> highlightedRows = getMemoryIndex(frameNumber);
+                if (!highlightedRows.isEmpty()) {
+                    memoryUpdateRow.clear();
+                    for (Integer i: highlightedRows) {
+                        memoryUpdateRow.add(i);
+                    }
+                }
                 break;
             case REPLACE_IN_MEMORY: operationsStatus.setText("Replacing frame " + frameNumber);
                 memoryContents = simulator.getMainMemoryContents();
-                memoryTable.setItems(extractMemoryItems(memoryContents));
+                memoryObs = extractMemoryItems(memoryContents);
+                memoryTable.setItems(memoryObs);
+                highlightedRows = getMemoryIndex(frameNumber);
+                if (!highlightedRows.isEmpty()) {
+                    memoryUpdateRow.clear();
+                    for (Integer i: highlightedRows) {
+                        memoryUpdateRow.add(i);
+                    }
+                }
                 break;
             case LOAD_FROM_MEMORY: operationsStatus.setText("Loading from memory (from frame " + frameNumber + ")");
                 physicalAddressFrameNumberField.setText(Integer.toBinaryString(frameNumber));
                 physicalAddressOffsetField.setText(virtualAddressOffsetField.getText());
+                highlightedRows = getMemoryIndex(frameNumber);
+                if (!highlightedRows.isEmpty()) {
+                    memoryHitRow.clear();
+                    for (Integer i: highlightedRows) {
+                        memoryHitRow.add(i);
+                    }
+                }
                 break;
             case STORE_IN_MEMORY: operationsStatus.setText("Storing in memory");
                 memoryContents = simulator.getMainMemoryContents();
-                memoryTable.setItems(extractMemoryItems(memoryContents));
+                memoryObs = extractMemoryItems(memoryContents);
+                memoryTable.setItems(memoryObs);
                 physicalAddressFrameNumberField.setText(Integer.toBinaryString(frameNumber));
                 physicalAddressOffsetField.setText(virtualAddressOffsetField.getText());
+                highlightedRows = getMemoryIndex(frameNumber);
+                if (!highlightedRows.isEmpty()) {
+                    memoryHitRow.clear();
+                    for (Integer i: highlightedRows) {
+                        memoryHitRow.add(i);
+                    }
+                }
                 break;
         }
     }
@@ -416,7 +555,7 @@ public class SimulatorWindow implements Observer{
         try {
             int address = parseAddressTextField();
             errorLabel.setText("");
-            simulator.loadData(address);
+            loadResult = simulator.loadData(address);
             nextButton.setVisible(true);
             executeButton.setVisible(false);
             physicalAddressFrameNumberField.setText("");
@@ -450,7 +589,62 @@ public class SimulatorWindow implements Observer{
         dataColumnDiskTable.setCellValueFactory(new PropertyValueFactory<>("data"));
 
         Map<Integer, Map<Integer, Integer>> diskContents = simulator.getDiskContents();
-        diskTable.setItems(extractDiskItems(diskContents));
+        diskObs = extractDiskItems(diskContents);
+        diskTable.setItems(diskObs);
+
+        diskHitRow = FXCollections.observableArrayList();
+        diskUpdateRow = FXCollections.observableArrayList();
+
+        diskTable.setRowFactory(new Callback<TableView<DiskItem>, TableRow<DiskItem>>() {
+            @Override
+            public TableRow<DiskItem> call(TableView<DiskItem> tableView) {
+                final TableRow<DiskItem> row = new TableRow<DiskItem>() {
+                    @Override
+                    protected void updateItem(DiskItem diskItem, boolean empty){
+                        super.updateItem(diskItem, empty);
+                        if (diskHitRow.contains(getIndex())) {
+                            if (! getStyleClass().contains("green-highlighted-row")) {
+                                getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                            if (diskUpdateRow.contains(getIndex())) {
+                                if (! getStyleClass().contains("blue-highlighted-row")) {
+                                    getStyleClass().add("blue-highlighted-row");
+                                }
+                            } else {
+                                getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                            }
+                        }
+                    }
+                };
+                diskHitRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (diskHitRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("green-highlighted-row")) {
+                                row.getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                        }
+                    }
+                });
+                diskUpdateRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (diskUpdateRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("blue-highlighted-row")) {
+                                row.getStyleClass().add("blue-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                        }
+                    }
+                });
+                return row;
+            }
+        });
     }
 
     private ObservableList<DiskItem> extractDiskItems(Map<Integer, Map<Integer, Integer>> allData) {
@@ -473,7 +667,62 @@ public class SimulatorWindow implements Observer{
         dataColumnMemoryTable.setCellValueFactory(new PropertyValueFactory<>("data"));
 
         Map<Integer, Map<Integer, Integer>> memoryContents = simulator.getMainMemoryContents();
-        memoryTable.setItems(extractMemoryItems(memoryContents));
+        memoryObs = extractMemoryItems(memoryContents);
+        memoryTable.setItems(memoryObs);
+
+        memoryHitRow = FXCollections.observableArrayList();
+        memoryUpdateRow = FXCollections.observableArrayList();
+
+        memoryTable.setRowFactory(new Callback<TableView<MemoryItem>, TableRow<MemoryItem>>() {
+            @Override
+            public TableRow<MemoryItem> call(TableView<MemoryItem> tableView) {
+                final TableRow<MemoryItem> row = new TableRow<MemoryItem>() {
+                    @Override
+                    protected void updateItem(MemoryItem memoryItem, boolean empty){
+                        super.updateItem(memoryItem, empty);
+                        if (memoryHitRow.contains(getIndex())) {
+                            if (! getStyleClass().contains("green-highlighted-row")) {
+                                getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                            if (memoryUpdateRow.contains(getIndex())) {
+                                if (! getStyleClass().contains("blue-highlighted-row")) {
+                                    getStyleClass().add("blue-highlighted-row");
+                                }
+                            } else {
+                                getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                            }
+                        }
+                    }
+                };
+                memoryHitRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (memoryHitRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("green-highlighted-row")) {
+                                row.getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                        }
+                    }
+                });
+                memoryUpdateRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (memoryUpdateRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("blue-highlighted-row")) {
+                                row.getStyleClass().add("blue-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                        }
+                    }
+                });
+                return row;
+            }
+        });
     }
 
     private ObservableList<MemoryItem> extractMemoryItems(Map<Integer, Map<Integer, Integer>> allData) {
@@ -497,7 +746,62 @@ public class SimulatorWindow implements Observer{
         pteDirtyColumnPageTable.setCellValueFactory(new PropertyValueFactory<>("dirty"));
 
         Map<Integer, PageTableEntry> pageTableContents = simulator.getPageTableContents();
-        pageTable.setItems(extractPageTableEntries(pageTableContents));
+        pageTableObs = extractPageTableEntries(pageTableContents);
+        pageTable.setItems(pageTableObs);
+
+        pageTableHitRow = FXCollections.observableArrayList();
+        pageTableUpdateRow = FXCollections.observableArrayList();
+
+        pageTable.setRowFactory(new Callback<TableView<PageTableItem>, TableRow<PageTableItem>>() {
+            @Override
+            public TableRow<PageTableItem> call(TableView<PageTableItem> tableView) {
+                final TableRow<PageTableItem> row = new TableRow<PageTableItem>() {
+                    @Override
+                    protected void updateItem(PageTableItem pageTableItem, boolean empty){
+                        super.updateItem(pageTableItem, empty);
+                        if (pageTableHitRow.contains(getIndex())) {
+                            if (! getStyleClass().contains("green-highlighted-row")) {
+                                getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                            if (pageTableUpdateRow.contains(getIndex())) {
+                                if (! getStyleClass().contains("blue-highlighted-row")) {
+                                    getStyleClass().add("blue-highlighted-row");
+                                }
+                            } else {
+                                getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                            }
+                        }
+                    }
+                };
+                pageTableHitRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (pageTableHitRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("green-highlighted-row")) {
+                                row.getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                        }
+                    }
+                });
+                pageTableUpdateRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (pageTableUpdateRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("blue-highlighted-row")) {
+                                row.getStyleClass().add("blue-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                        }
+                    }
+                });
+                return row;
+            }
+        });
     }
 
     private ObservableList<PageTableItem> extractPageTableEntries(Map<Integer, PageTableEntry> allData) {
@@ -517,6 +821,66 @@ public class SimulatorWindow implements Observer{
 
         Map<Integer, PageTableEntry> tlbContents = simulator.getTLBContents();
         tlbTable.setItems(extractPageTableEntries(tlbContents));
+
+
+        tlbHitRow = FXCollections.observableArrayList();
+        tlbUpdateRow = FXCollections.observableArrayList();
+
+        tlbTable.setRowFactory(new Callback<TableView<PageTableItem>, TableRow<PageTableItem>>() {
+            @Override
+            public TableRow<PageTableItem> call(TableView<PageTableItem> tableView) {
+                final TableRow<PageTableItem> row = new TableRow<PageTableItem>() {
+                    @Override
+                    protected void updateItem(PageTableItem pageTableItem, boolean empty){
+                        super.updateItem(pageTableItem, empty);
+                        if (tlbHitRow.contains(getIndex())) {
+                            if (! getStyleClass().contains("green-highlighted-row")) {
+                                getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                            if (tlbUpdateRow.contains(getIndex())) {
+                                if (! getStyleClass().contains("blue-highlighted-row")) {
+                                    getStyleClass().add("blue-highlighted-row");
+                                }
+                            } else {
+                                getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                            }
+                        }
+
+                    }
+                };
+                tlbHitRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (tlbHitRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("green-highlighted-row")) {
+                                row.getStyleClass().add("green-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("green-highlighted-row"));
+                        }
+                    }
+                });
+
+                tlbUpdateRow.addListener(new ListChangeListener<Integer>() {
+                    @Override
+                    public void onChanged(Change<? extends Integer> change) {
+                        if (tlbUpdateRow.contains(row.getIndex())) {
+                            if (! row.getStyleClass().contains("blue-highlighted-row")) {
+                                row.getStyleClass().add("blue-highlighted-row");
+                            }
+                        } else {
+                            row.getStyleClass().removeAll(Collections.singleton("blue-highlighted-row"));
+                        }
+                    }
+                });
+                return row;
+            }
+        });
+
+
+
     }
 
 }

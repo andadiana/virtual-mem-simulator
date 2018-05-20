@@ -1,0 +1,20 @@
+.green-highlighted-row {
+     -fx-background: #8bd975;
+}
+
+.blue-highlighted-row {
+    -fx-background: #72b8d9;
+}
+
+.red-label {
+    -fx-text-fill: #d91417;
+    -fx-font-weight: bold;
+}
+
+.table-view .column-header{
+    -fx-font-size: 12;
+}
+
+.table-cell {
+    -fx-font-size: 10px;
+}

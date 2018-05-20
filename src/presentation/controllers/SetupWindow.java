@@ -48,13 +48,15 @@ public class SetupWindow {
         else {
             try {
                 parseFields();
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("../SimulatorWindow.fxml"));
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("../resources/view/SimulatorWindow.fxml"));
                 Parent root = loader.load();
                 SimulatorWindow simulatorWindowController = loader.getController();
                 simulatorWindowController.initData(virtualMemSize, mainMemSize, pageSize, tlbSize);
                 Stage stage = new Stage();
                 stage.setTitle("Virtual memory simulator");
-                stage.setScene(new Scene(root, 1200, 750));
+                Scene scene = new Scene(root, 1000, 670);
+                scene.getStylesheets().add(getClass().getResource("../resources/css/style-class.css").toExternalForm());
+                stage.setScene(scene);
                 stage.show();
 
                 Stage currentStage = (Stage) startSimulationButton.getScene().getWindow();
