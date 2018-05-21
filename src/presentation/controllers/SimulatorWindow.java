@@ -18,8 +18,10 @@ import presentation.data.MemoryItem;
 import presentation.data.PageTableItem;
 import simulator.*;
 import simulator.Observer;
+import simulator.util.Logarithm;
 
 import java.io.IOException;
+import java.sql.SQLOutput;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -160,6 +162,10 @@ public class SimulatorWindow implements Observer{
     private ObservableList<Integer> diskHitRow;
     private ObservableList<Integer> diskUpdateRow;
 
+    private int offsetNrBits;
+    private int virtualAddressNrBits;
+    private int physicalAddressNrBits;
+
     private int loadResult;
 
     public void update(Queue<OperationStep> operationSteps) {
@@ -174,6 +180,10 @@ public class SimulatorWindow implements Observer{
         this.mainMemorySize = mainMemorySize;
         this.pageSize = pageSize;
         this.tlbSize = tlbSize;
+
+        offsetNrBits = (int) Logarithm.log2(pageSize);
+        virtualAddressNrBits = (int) Logarithm.log2(virtualMemorySize);
+        physicalAddressNrBits = (int)Logarithm.log2(mainMemorySize);
 
         simulator = new VirtualMemorySimulator(virtualMemorySize, mainMemorySize, pageSize, tlbSize);
         simulator.addObserver(this);
@@ -435,9 +445,9 @@ public class SimulatorWindow implements Observer{
                 diskTable.setItems(diskObs);
                 highlightedRows = getDiskIndex(virtualPageNumber);
                 if (!highlightedRows.isEmpty()) {
-                    diskHitRow.clear();
+                    diskUpdateRow.clear();
                     for (Integer i: highlightedRows) {
-                        diskHitRow.add(i);
+                        diskUpdateRow.add(i);
                     }
                 }
                 break;
@@ -455,18 +465,40 @@ public class SimulatorWindow implements Observer{
         return indices;
     }
 
-    private void updateMemory(OperationType type, int frameNumber) {
+    private PhysicalAddress constructPhysicalAddress(int address) {
+        int mask = (1 << offsetNrBits) - 1;
+        int offset = address & mask;
+        int frameNumberBits = physicalAddressNrBits - offsetNrBits;
+        address = address >> offsetNrBits;
+        mask = (1 << frameNumberBits) - 1;
+        int frameNumber = address & mask;
+        return new PhysicalAddress(frameNumber, offset);
+    }
+
+    private Integer getMemoryIndex(int frameNumber, int physicalAddress) {
+        int i = 0;
+        for (MemoryItem m: memoryObs) {
+            if (m.getFrameNumber() == frameNumber && m.getAddress() == physicalAddress) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+
+    private void updateMemory(OperationType type, int physicalAddress) {
         System.out.println("Update Mem");
         System.out.println(type);
-        System.out.println(frameNumber);
+        PhysicalAddress address = constructPhysicalAddress(physicalAddress);
+        System.out.println(address.getFrameNumber());
 
         Map<Integer, Map<Integer, Integer>> memoryContents;
         switch (type) {
-            case BRING_TO_MEMORY: operationsStatus.setText("Bringing page to memory at frame number " + frameNumber);
+            case BRING_TO_MEMORY: operationsStatus.setText("Bringing page to memory at frame number " + address.getFrameNumber());
                 memoryContents = simulator.getMainMemoryContents();
                 memoryObs = extractMemoryItems(memoryContents);
                 memoryTable.setItems(memoryObs);
-                List<Integer> highlightedRows = getMemoryIndex(frameNumber);
+                List<Integer> highlightedRows = getMemoryIndex(address.getFrameNumber());
                 if (!highlightedRows.isEmpty()) {
                     memoryUpdateRow.clear();
                     for (Integer i: highlightedRows) {
@@ -474,11 +506,11 @@ public class SimulatorWindow implements Observer{
                     }
                 }
                 break;
-            case REPLACE_IN_MEMORY: operationsStatus.setText("Replacing frame " + frameNumber);
+            case REPLACE_IN_MEMORY: operationsStatus.setText("Replacing frame " + address.getFrameNumber());
                 memoryContents = simulator.getMainMemoryContents();
                 memoryObs = extractMemoryItems(memoryContents);
                 memoryTable.setItems(memoryObs);
-                highlightedRows = getMemoryIndex(frameNumber);
+                highlightedRows = getMemoryIndex(address.getFrameNumber());
                 if (!highlightedRows.isEmpty()) {
                     memoryUpdateRow.clear();
                     for (Integer i: highlightedRows) {
@@ -486,29 +518,23 @@ public class SimulatorWindow implements Observer{
                     }
                 }
                 break;
-            case LOAD_FROM_MEMORY: operationsStatus.setText("Loading from memory (from frame " + frameNumber + ")");
-                physicalAddressFrameNumberField.setText(Integer.toBinaryString(frameNumber));
-                physicalAddressOffsetField.setText(virtualAddressOffsetField.getText());
-                highlightedRows = getMemoryIndex(frameNumber);
-                if (!highlightedRows.isEmpty()) {
+            case LOAD_FROM_MEMORY: operationsStatus.setText("Loading from memory (from frame " + address.getFrameNumber() + ")");
+                setPhysicalAddress(address.getFrameNumber());
+                int highlightedRow = getMemoryIndex(address.getFrameNumber(), physicalAddress);
+                if (highlightedRow != -1) {
                     memoryHitRow.clear();
-                    for (Integer i: highlightedRows) {
-                        memoryHitRow.add(i);
-                    }
+                    memoryHitRow.add(highlightedRow);
                 }
                 break;
             case STORE_IN_MEMORY: operationsStatus.setText("Storing in memory");
                 memoryContents = simulator.getMainMemoryContents();
                 memoryObs = extractMemoryItems(memoryContents);
                 memoryTable.setItems(memoryObs);
-                physicalAddressFrameNumberField.setText(Integer.toBinaryString(frameNumber));
-                physicalAddressOffsetField.setText(virtualAddressOffsetField.getText());
-                highlightedRows = getMemoryIndex(frameNumber);
-                if (!highlightedRows.isEmpty()) {
+                setPhysicalAddress(address.getFrameNumber());
+                highlightedRow = getMemoryIndex(address.getFrameNumber(), physicalAddress);
+                if (highlightedRow != -1) {
                     memoryHitRow.clear();
-                    for (Integer i: highlightedRows) {
-                        memoryHitRow.add(i);
-                    }
+                    memoryHitRow.add(highlightedRow);
                 }
                 break;
         }
@@ -547,10 +573,28 @@ public class SimulatorWindow implements Observer{
     private void setVirtualAddress(int address) {
         VirtualAddress virtualAddress = simulator.constructVirtualAddress(address);
         String virtualPageNumberString = Integer.toBinaryString(virtualAddress.getVirtualPageNumber());
+        int vpnNrBits = virtualAddressNrBits - offsetNrBits;
+        while (virtualPageNumberString.length() < vpnNrBits) {
+            virtualPageNumberString = "0" + virtualPageNumberString;
+        }
         String offsetString  = Integer.toBinaryString(virtualAddress.getOffset());
+        while (offsetString.length() < offsetNrBits) {
+            offsetString = "0" + offsetString;
+        }
         virtualAddressPageNumberField.setText(virtualPageNumberString);
         virtualAddressOffsetField.setText(offsetString);
     }
+
+    private void setPhysicalAddress(int frameNumber) {
+        String frameNumberString = Integer.toBinaryString(frameNumber);
+        int frameNrBits = physicalAddressNrBits - offsetNrBits;
+        while (frameNumberString.length() < frameNrBits) {
+            frameNumberString = "0" + frameNumberString;
+        }
+        physicalAddressFrameNumberField.setText(frameNumberString);
+        physicalAddressOffsetField.setText(virtualAddressOffsetField.getText());
+    }
+
     private void executeLoad() {
         try {
             int address = parseAddressTextField();

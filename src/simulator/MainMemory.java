@@ -81,11 +81,11 @@ public class MainMemory {
         for (Map.Entry<Integer, Page> e: memory.entrySet()) {
             Map<Integer, Integer> pageCopy = e.getValue().getPageContents();
             //addresses with offset
-            int virtualPageNumber = e.getKey();
+            int frameNumber = e.getKey();
             Map<Integer, Integer> pageCopyWithOffsets = new HashMap<>();
             for(Map.Entry<Integer, Integer> pe: pageCopy.entrySet()) {
                 int offset = pe.getKey();
-                int address = virtualPageNumber * pageSize + offset;
+                int address = frameNumber * pageSize + offset;
                 pageCopyWithOffsets.put(address, pe.getValue());
             }
             memoryCopy.put(e.getKey(), pageCopyWithOffsets);
